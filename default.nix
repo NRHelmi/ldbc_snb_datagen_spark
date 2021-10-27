@@ -13,7 +13,7 @@ stdenv.mkDerivation rec {
   src = ./.;
   buildInputs = [ maven openjdk8 python38Packages.virtualenv ];
   buildPhase = ''
-    mkdir -p $out
+    mkdir -p $out/tmp
 
     export SPARK_HOME="${spark-hadoop}"
     export PATH="$PATH":"$SPARK_HOME/bin"
@@ -30,7 +30,27 @@ stdenv.mkDerivation rec {
       --format csv \
       --scale-factor ${sf} \
       --mode raw \
-      --output-dir $out
+      --output-dir $out/tmp
+
+    mv $out/tmp/graphs/csv/raw/composite-merged-fk/* $out
+    rm -rf $out/tmp
+
+    cd $out
+
+    echo "Merging outputs ..."
+    for i in static/*; do
+      echo "- $i"
+      head -n 1 $i/part_0_0.csv > $i.csv
+      tail -qn +2 $i/*.csv >> $i.csv
+      rm -rf $i
+    done
+
+    for i in dynamic/*; do
+      echo "- $i"
+      head -n 1 $i/part_0_0.csv > $i.csv
+      tail -qn +2 $i/*.csv >> $i.csv
+      rm -rf $i
+    done
   '';
 
   shellHook = ''
