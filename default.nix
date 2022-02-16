@@ -1,6 +1,6 @@
 {
   pkgs ? import (builtins.fetchTarball "https://github.com/NixOS/nixpkgs/archive/bc66bad58ccceccae361e84628702cfc7694efda.tar.gz") {},
-  sf ? "0.1"
+  sf ? "0.003"
 }:
 
 let
@@ -9,7 +9,7 @@ let
 
 in with pkgs;
 stdenv.mkDerivation rec {
-  name = "ldbc_snb_datagen_spark";
+  name = "ldbc_snb_datagen_spark_${sf}";
   src = ./.;
   buildInputs = [ maven openjdk8 python38Packages.virtualenv ];
   buildPhase = ''
@@ -29,27 +29,32 @@ stdenv.mkDerivation rec {
       ./target/ldbc_snb_datagen_*-SNAPSHOT-jar-with-dependencies.jar -- \
       --format csv \
       --scale-factor ${sf} \
-      --mode raw \
+      --mode bi \
       --output-dir $out/tmp
 
-    mv $out/tmp/graphs/csv/raw/composite-merged-fk/* $out
+    cp -r $out/tmp/graphs/csv/bi/composite-merged-fk/* $out
     rm -rf $out/tmp
 
-    cd $out
+    cd $out/initial_snapshot
 
     echo "Merging outputs ..."
     for i in static/*; do
       echo "- $i"
-      head -n 1 $i/part_0_0.csv > $i.csv
-      tail -qn +2 $i/*.csv >> $i.csv
+      cat $i/part-00000*.csv > $i.csv
+      # Delete the file so we don't rejoin it
+      rm $i/part-00000*.csv
+      tail -qn +2 $i/part-*.csv >> $i.csv
       rm -rf $i
     done
 
     for i in dynamic/*; do
       echo "- $i"
-      head -n 1 $i/part_0_0.csv > $i.csv
-      tail -qn +2 $i/*.csv >> $i.csv
+      cat $i/part-00000*.csv > $i.csv
+      # Delete the file so we don't rejoin it
+      rm $i/part-00000*.csv
+      tail -qn +2 $i/part-*.csv >> $i.csv
       rm -rf $i
+      echo "- $i"
     done
   '';
 
